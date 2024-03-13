@@ -5,23 +5,17 @@ class Sigmoid(torch.autograd.Function):
     """The Sigmoid activation function."""
 
     @staticmethod
-    def forward(ctx, data: torch.Tensor) -> torch.Tensor:
+    def forward(ctx, input: torch.Tensor) -> torch.Tensor:
         """Performs a forward pass."""
 
-        neg_mask = data < 0
-        pos_mask = ~neg_mask
+        out_tensor = torch.empty_like(input)
+        positive_mask = input >= 0
+        out_tensor[positive_mask] = 1. / (1. + torch.exp(-input[positive_mask]))
+        out_tensor[~positive_mask] = torch.exp(input[~positive_mask]) / (1. + torch.exp(input[~positive_mask]))
+        
+        ctx.save_for_backward(out_tensor)
 
-        zs = torch.empty_like(data)
-        zs[neg_mask] = data[neg_mask].exp()
-        zs[pos_mask] = (-data[pos_mask]).exp()
-
-        res = torch.ones_like(data)
-        res[neg_mask] = zs[neg_mask]
-
-        result = res / (1 + zs)
-
-        ctx.save_for_backward(result)
-        return result
+        return out_tensor
 
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor) -> torch.Tensor:
@@ -33,16 +27,12 @@ class Sigmoid(torch.autograd.Function):
 
 
 if __name__ == "__main__":
-    # Sets the manual seed for reproducible experiments
-    torch.manual_seed(0)
+    torch.manual_seed(42)
 
     sigmoid = Sigmoid.apply
     data = torch.randn(4, dtype=torch.double, requires_grad=True)
 
-    # `torch.autograd.gradcheck` takes a tuple of tensors as input, check if your gradient evaluated
-    # with these tensors are close enough to numerical approximations and returns `True` if they all
-    # verify this condition.
-    if torch.autograd.gradcheck(sigmoid, data, eps=1e-8, atol=1e-7):  # type: ignore
-        print("gradcheck successful")
+    if torch.autograd.gradcheck(sigmoid, data, eps=1e-8, atol=1e-7):
+        print('gradcheck successful :D')
     else:
-        print("gradcheck unsuccessful")
+        print('gradcheck unsuccessful :D')
